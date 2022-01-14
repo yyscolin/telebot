@@ -7,6 +7,7 @@ import time
 
 
 load_dotenv()
+master_chat = int(os.getenv("master_chat"))
 mydb = mysql.connector.connect(
     host=os.getenv("mysql_host") or "127.0.0.1",
     port=os.getenv("mysql_port") or 3306,
@@ -54,13 +55,15 @@ def run_cronjob():
             add_to_database(new_update)
             continue
 
-        if chat_id == os.getenv("master_chat") and new_update.message.reply_to_message:
+        if chat_id == master_chat and new_update.message.reply_to_message:
             reply_chat = new_update.message.reply_to_message.forward_from.id
+            telebot.send_message(reply_chat, "You have a new message.")
             telebot.forward_message(reply_chat, chat_id, message_id)
             add_to_database(new_update)
             continue
         
-        telebot.forward_message(os.getenv("master_chat"), chat_id, message_id)
+        telebot.forward_message(master_chat, chat_id, message_id)
+        telebot.send_message(chat_id, "Your message has been received.")
         add_to_database(new_update)
 
 
