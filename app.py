@@ -50,7 +50,7 @@ def run_cronjob():
             continue
 
         if new_update.message.text == "/chatid":
-            telebot.send_message(chat_id, "This chat ID is " + chat_id)
+            telebot.send_message(chat_id, "This chat ID is {}.".format(chat_id))
             add_to_database(new_update)
             continue
 
