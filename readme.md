@@ -12,6 +12,8 @@ create table updates (
 )
 ```
 
+Grant INSERT and SELECT privileges to the table
+
 ## Create a virtual environment
 Follow the guide:
 https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/
