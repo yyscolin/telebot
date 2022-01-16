@@ -30,12 +30,12 @@ SQL_QUERY_1 = """
 SELECT from_chat_id, from_message_id FROM forwarded_messages WHERE to_chat_id=%s and to_message_id=%s
 """
 SQL_QUERY_2 = """
-select chat_id, message_id, replies_count, is_rated, timestamp from updates left join (
+select chat_id, message_id, replies_count, is_rated, timestamp from messages left join (
     select reply_chat_id, reply_message_id, count(*) as replies_count
-    from updates
+    from messages
     where reply_chat_id is not null and reply_message_id is not null
     group by reply_chat_id, reply_message_id
-) t1 on updates.chat_id=t1.reply_chat_id and updates.message_id=t1.reply_message_id
+) t1 on messages.chat_id=t1.reply_chat_id and messages.message_id=t1.reply_message_id
 """
 
 
@@ -43,15 +43,14 @@ new_message_senders = []
 
 
 def add_to_database(new_update, is_rated, reply_chat_id=None, reply_message_id=None):
-    sql_query = "INSERT INTO updates VALUES (%s, %s, %s, %s, %s, %s, %s)"
+    sql_query = "INSERT INTO messages VALUES (%s, %s, %s, %s, %s, %s)"
     mycursor.execute(sql_query, (
         new_update.message.chat_id,
         new_update.message.message_id,
         reply_chat_id,
         reply_message_id,
         is_rated,
-        new_update.message.date,
-        new_update.__str__()
+        new_update.message.date
     ))
     mydb.commit()
 
@@ -79,6 +78,14 @@ def get_rate_limits_list():
     return rate_limits
 
 
+def get_recorded_updates():
+    update_ids = []
+    mycursor.execute("select update_id from updates")
+    for [update_id] in mycursor.fetchall():
+        update_ids.append(update_id)
+    return update_ids
+
+
 def get_reply_target(to_chat_id, to_message_id):
     mycursor.execute(SQL_QUERY_1, (
         to_chat_id,
@@ -87,11 +94,9 @@ def get_reply_target(to_chat_id, to_message_id):
     return mycursor.fetchone()
 
 
-def is_in_database(db_list, chat_id, message_id):
-    for db_row in db_list:
-        is_same_chat = db_row[0] == chat_id
-        is_same_message = db_row[1] == message_id
-        if is_same_chat and is_same_message:
+def is_in_array(haystack, needle):
+    for array_element in haystack:
+        if array_element and needle:
             return True
     return False
 
@@ -115,8 +120,8 @@ def run_cronjob():
     timenow = datetime.datetime.now()
 
     mycursor.execute(SQL_QUERY_2)
-    db_list = mycursor.fetchall()
-    for [chat_id, message_id, replies_count, is_rated, timestamp] in db_list:
+    recorded_messages = mycursor.fetchall()
+    for [chat_id, message_id, replies_count, is_rated, timestamp] in recorded_messages:
         if chat_id not in rate_limits:
             rate_limits[chat_id] = get_rate_limit_default(timenow)
 
@@ -124,14 +129,19 @@ def run_cronjob():
         if is_in_timespan and is_rated and replies_count is None:
             rate_limits[chat_id]["messages_sent"] += 1
 
+    recorded_updates = get_recorded_updates()
     for new_update in telebot.get_updates(timeout=60):
+        update_id = new_update.update_id
+        if is_in_array(recorded_updates, update_id):
+            continue
+
+        mycursor.execute("insert into updates values (%s, %s)", (update_id, new_update.to_json()))
+
         if new_update.message is None:
             continue
 
         chat_id = new_update.message.chat_id
         message_id = new_update.message.message_id
-        if is_in_database(db_list, chat_id, message_id):
-            continue
 
         if new_update.message.text == "/start":
             telebot.send_message(chat_id, "Hi, {}.".format(new_update.message.chat.first_name))
