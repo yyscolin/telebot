@@ -9,30 +9,34 @@ create table updates (
 );
 
 create table messages (
-    chat_id int unsigned not null,
+    chat_id int not null,
     message_id int unsigned not null,
-    reply_chat_id int unsigned,
+    reply_chat_id int,
     reply_message_id int unsigned,
     timestamp timestamp not null,
     primary key (chat_id, message_id)
 );
 
 create table rate_limits (
-    chat_id int unsigned not null primary key,
+    chat_id int not null primary key,
     `limit` int unsigned not null,
     timespan int unsigned not null
 );
 
 create table forwarded_messages (
-    from_chat_id int unsigned not null,
+    from_chat_id int not null,
     from_message_id int unsigned not null,
-    to_chat_id int unsigned not null,
+    to_chat_id int not null,
     to_message_id int unsigned not null,
     primary key (to_chat_id, to_message_id)
 );
 ```
 
-Grant INSERT and SELECT privileges to the table
+Grant INSERT and SELECT privileges to the tables
+
+## Create Telegram bot
+Go to bot father and create a new bot with `/newbot` command
+Disable group privacy with `/setprivacy` command
 
 ## Create a virtual environment
 Follow the guide:
