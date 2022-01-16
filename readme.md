@@ -1,16 +1,20 @@
 # Telebot v1.0
 Telebot is a simple project which forwards all Telegram messages sent to a bot into a chat (i.e. master chat) and vice-versa.
 
-## Create database table
+## Create database tables
 ```
 create table updates (
+    update_id int unsigned not null primary key,
+    payload varchar(1200) not null
+);
+
+create table messages (
     chat_id int unsigned not null,
     message_id int unsigned not null,
     reply_chat_id int unsigned,
     reply_message_id int unsigned,
     is_rated boolean not null default true,
     timestamp timestamp not null,
-    payload varchar(1200) not null,
     primary key (chat_id, message_id)
 );
 
