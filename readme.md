@@ -13,7 +13,6 @@ create table messages (
     message_id int unsigned not null,
     reply_chat_id int unsigned,
     reply_message_id int unsigned,
-    is_rated boolean not null default true,
     timestamp timestamp not null,
     primary key (chat_id, message_id)
 );
