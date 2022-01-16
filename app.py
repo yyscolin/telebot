@@ -30,7 +30,7 @@ SQL_QUERY_1 = """
 SELECT from_chat_id, from_message_id FROM forwarded_messages WHERE to_chat_id=%s and to_message_id=%s
 """
 SQL_QUERY_2 = """
-select chat_id, message_id, replies_count, is_rated, timestamp from messages left join (
+select chat_id, message_id, replies_count, timestamp from messages left join (
     select reply_chat_id, reply_message_id, count(*) as replies_count
     from messages
     where reply_chat_id is not null and reply_message_id is not null
@@ -40,19 +40,6 @@ select chat_id, message_id, replies_count, is_rated, timestamp from messages lef
 
 
 new_message_senders = []
-
-
-def add_to_database(new_update, is_rated, reply_chat_id=None, reply_message_id=None):
-    sql_query = "INSERT INTO messages VALUES (%s, %s, %s, %s, %s, %s)"
-    mycursor.execute(sql_query, (
-        new_update.message.chat_id,
-        new_update.message.message_id,
-        reply_chat_id,
-        reply_message_id,
-        is_rated,
-        new_update.message.date
-    ))
-    mydb.commit()
 
 
 def get_rate_limit_default(timenow):
@@ -115,18 +102,30 @@ def push_message(from_chat_id, from_message_id, to_chat_id, push_tip, reply_mess
     ))
 
 
+def record_message(new_message, reply_chat_id=None, reply_message_id=None):
+    sql_query = "INSERT INTO messages VALUES (%s, %s, %s, %s, %s)"
+    mycursor.execute(sql_query, (
+        new_message.chat_id,
+        new_message.message_id,
+        reply_chat_id,
+        reply_message_id,
+        new_message.date
+    ))
+    mydb.commit()
+
+
 def run_cronjob():
     rate_limits = get_rate_limits_list()
     timenow = datetime.datetime.now()
 
     mycursor.execute(SQL_QUERY_2)
     recorded_messages = mycursor.fetchall()
-    for [chat_id, message_id, replies_count, is_rated, timestamp] in recorded_messages:
+    for [chat_id, message_id, replies_count, timestamp] in recorded_messages:
         if chat_id not in rate_limits:
             rate_limits[chat_id] = get_rate_limit_default(timenow)
 
         is_in_timespan = timestamp > rate_limits[chat_id]["cutoff_time"]
-        if is_in_timespan and is_rated and replies_count is None:
+        if is_in_timespan and replies_count is None:
             rate_limits[chat_id]["messages_sent"] += 1
 
     recorded_updates = get_recorded_updates()
@@ -138,38 +137,36 @@ def run_cronjob():
         mycursor.execute("insert into updates values (%s, %s)", (update_id, new_update.to_json()))
         mydb.commit()
 
-        if new_update.message is None:
+        new_message = new_update.message
+        if new_message is None or new_message.group_chat_created:
             continue
 
-        chat_id = new_update.message.chat_id
-        message_id = new_update.message.message_id
+        chat_id = new_message.chat_id
+        message_id = new_message.message_id
 
-        if new_update.message.text == "/start":
-            telebot.send_message(chat_id, "Hi, {}.".format(new_update.message.chat.first_name))
-            add_to_database(new_update, False)
+        if new_message.text == "/start":
+            telebot.send_message(chat_id, "Hi, {}.".format(new_message.chat.first_name))
             continue
 
-        if new_update.message.text == "/chatid":
+        if new_message.text == "/chatid":
             telebot.send_message(chat_id, "This chat ID is {}.".format(chat_id))
             add_to_database(new_update, False)
             continue
 
-        if new_update.message.text == "/new" and chat_id == master_chat:
+        if new_message.text == "/new" and chat_id == master_chat:
             if chat_id in new_message_senders:
                 telebot.send_message(chat_id, "Your next reply has already been marked as a new message")
             else:
                 new_message_senders.append(chat_id)
                 telebot.send_message(chat_id, "Your next reply will be a new message instead of a reply")
-            add_to_database(new_update, False)
             continue
 
-        reply_to_message = new_update.message.reply_to_message
+        reply_to_message = new_message.reply_to_message
         if reply_to_message:
             is_bot_sent = reply_to_message.from_user.is_bot
             is_not_forwarded = reply_to_message.forward_from is None
             if is_bot_sent and is_not_forwarded:
                 telebot.send_message(chat_id, REJECT_MESSAGE_2, reply_to_message_id=message_id)
-                add_to_database(new_update, False)
                 continue
 
         if chat_id not in rate_limits:
@@ -180,29 +177,27 @@ def run_cronjob():
             timespan = rate_limits[chat_id]["timespan"]
             reject_message = REJECT_MESSAGE_1.format(messages_sent, timespan)
             telebot.send_message(chat_id, reject_message, reply_to_message_id=message_id)
-            add_to_database(new_update, False)
             continue
 
         if reply_to_message:
             reply_target = get_reply_target(chat_id, reply_to_message.message_id)
             if reply_target is None:
                 telebot.send_message(chat_id, "You cannot reply to this message due to an internal server error", reply_to_message_id=message_id)
-                add_to_database(new_update, False)
                 continue
 
             (reply_chat_id, reply_message_id) = reply_target
             if chat_id in new_message_senders:
                 push_message(chat_id, message_id, reply_chat_id, "You have a new message:")
                 new_message_senders.remove(chat_id)
-                add_to_database(new_update, True)
+                record_message(new_message)
                 continue
 
             push_message(chat_id, message_id, reply_chat_id, "You have a reply for this message:", reply_message_id)
-            add_to_database(new_update, True, reply_chat_id, reply_message_id)
+            record_message(new_message, reply_chat_id, reply_message_id)
             continue
 
         push_message(chat_id, message_id, master_chat, "You have a new message:")
-        add_to_database(new_update, True)
+        record_message(new_message)
 
 
 while True:
