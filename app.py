@@ -8,7 +8,6 @@ import time
 
 
 load_dotenv()
-master_chat = int(os.getenv("master_chat"))
 mydb = mysql.connector.connect(
     host=os.getenv("mysql_host") or "127.0.0.1",
     port=os.getenv("mysql_port") or 3306,
@@ -37,9 +36,24 @@ select chat_id, message_id, replies_count, timestamp from messages left join (
     group by reply_chat_id, reply_message_id
 ) t1 on messages.chat_id=t1.reply_chat_id and messages.message_id=t1.reply_message_id
 """
+SQL_QUERY_3 = """
+insert into agents values (%s, %s, %s) as vals
+on duplicate key update
+is_group=vals.is_group,
+name=vals.name
+"""
 
 
 new_message_senders = []
+chat_contexts = {}
+
+
+def get_agent_chats():
+    agent_chats = []
+    mycursor.execute("select chat_id from agents")
+    for [chat_id] in mycursor.fetchall():
+        agent_chats.append(chat_id)
+    return agent_chats
 
 
 def get_rate_limit_default(timenow):
@@ -88,18 +102,29 @@ def is_in_array(haystack, needle):
     return False
 
 
-def push_message(from_chat_id, from_message_id, to_chat_id, push_tip, reply_message_id=None):
-    telebot.send_message(to_chat_id, push_tip, reply_to_message_id=reply_message_id)
-    forward_result = telebot.forward_message(to_chat_id, from_chat_id, from_message_id)
+def push_message(from_chat_id, from_message_id, to_chat_ids, push_tip, reply_message_id=None):
+    for chat_id in to_chat_ids:
+        telebot.send_message(chat_id, push_tip, reply_to_message_id=reply_message_id)
+        forward_result = telebot.forward_message(chat_id, from_chat_id, from_message_id)
+        sql_query = "INSERT INTO forwarded_messages VALUES (%s, %s, %s, %s)"
+        mycursor.execute(sql_query, (
+            from_chat_id,
+            from_message_id,
+            chat_id,
+            forward_result.message_id
+        ))
+        mydb.commit()
+
     telebot.send_message(from_chat_id, "Your message has been received.", reply_to_message_id=from_message_id)
 
-    sql_query = "INSERT INTO forwarded_messages VALUES (%s, %s, %s, %s)"
-    mycursor.execute(sql_query, (
-        from_chat_id,
-        from_message_id,
-        to_chat_id,
-        forward_result.message_id
+
+def record_agent(new_message):
+    mycursor.execute(SQL_QUERY_3, (
+        new_message.chat_id,
+        new_message.chat.type == "group",
+        new_message.chat.title or new_message.chat.username or new_message.chat.first_name
     ))
+    mydb.commit()
 
 
 def record_message(new_message, reply_chat_id=None, reply_message_id=None):
@@ -148,12 +173,25 @@ def run_cronjob():
             telebot.send_message(chat_id, "Hi, {}.".format(new_message.chat.first_name))
             continue
 
-        if new_message.text == "/chatid":
-            telebot.send_message(chat_id, "This chat ID is {}.".format(chat_id))
-            add_to_database(new_update, False)
+        if new_message.text == "/setagent":
+            chat_contexts[chat_id] = {"type": "agent_password"}
+            telebot.send_message(chat_id, "Please enter the agent password")
             continue
 
-        if new_message.text == "/new" and chat_id == master_chat:
+        if chat_id in chat_contexts and chat_contexts[chat_id]["type"] == "agent_password":
+            del chat_contexts[chat_id]
+
+            agent_password = os.getenv("agent_password") or "PASSWORD.123"
+            if new_message.text != agent_password:
+                telebot.send_message(chat_id, "Wrong agent password entered")
+                continue
+
+            telebot.send_message(chat_id, "Setting this chat as an agent chat")
+            record_agent(new_message)
+            continue
+
+        agent_chats = get_agent_chats()
+        if new_message.text == "/new" and chat_id in agent_chats:
             if chat_id in new_message_senders:
                 telebot.send_message(chat_id, "Your next reply has already been marked as a new message")
             else:
@@ -187,16 +225,17 @@ def run_cronjob():
 
             (reply_chat_id, reply_message_id) = reply_target
             if chat_id in new_message_senders:
-                push_message(chat_id, message_id, reply_chat_id, "You have a new message:")
+                push_message(chat_id, message_id, [reply_chat_id], "You have a new message:")
                 new_message_senders.remove(chat_id)
                 record_message(new_message)
                 continue
 
-            push_message(chat_id, message_id, reply_chat_id, "You have a reply for this message:", reply_message_id)
+            to_chat_ids = agent_chats if reply_chat_id in agent_chats else [reply_chat_id]
+            push_message(chat_id, message_id, to_chat_ids, "You have a reply for this message:", reply_message_id)
             record_message(new_message, reply_chat_id, reply_message_id)
             continue
 
-        push_message(chat_id, message_id, master_chat, "You have a new message:")
+        push_message(chat_id, message_id, agent_chats, "You have a new message:")
         record_message(new_message)
 
 

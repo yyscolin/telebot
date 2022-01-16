@@ -3,6 +3,12 @@ Telebot is a simple project which forwards all Telegram messages sent to a bot i
 
 ## Create database tables
 ```
+create table agents (
+    chat_id int not null primary key,
+    is_group boolean not null default false,
+    name varchar(120) not null
+);
+
 create table updates (
     update_id int unsigned not null primary key,
     payload varchar(1200) not null
@@ -32,7 +38,7 @@ create table forwarded_messages (
 );
 ```
 
-Grant INSERT and SELECT privileges to the tables
+Grant SELECT, INSERT, UPDATE, DELETE privileges to the tables
 
 ## Create Telegram bot
 Go to bot father and create a new bot with `/newbot` command
@@ -52,8 +58,10 @@ Run the following command:
 
 ## Set env variables
 Copy .env_sample to .env and fill in the variables
-If you do not have your master chat ID yet, type `/chatid` to the bot (while server is running)
 
 ## Run the server
 Run the application using the command:
 `py app.py`
+
+## Register as chat agent
+Type `/setagent` to the chat bot and enter the agent password when prompted
