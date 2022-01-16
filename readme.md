@@ -6,10 +6,27 @@ Telebot is a simple project which forwards all Telegram messages sent to a bot i
 create table updates (
     chat_id int unsigned not null,
     message_id int unsigned not null,
+    reply_chat_id int unsigned,
+    reply_message_id int unsigned,
+    is_rated boolean not null default true,
     timestamp timestamp not null,
     payload varchar(1200) not null,
     primary key (chat_id, message_id)
-)
+);
+
+create table rate_limits (
+    chat_id int unsigned not null primary key,
+    `limit` int unsigned not null,
+    timespan int unsigned not null
+);
+
+create table forwarded_messages (
+    from_chat_id int unsigned not null,
+    from_message_id int unsigned not null,
+    to_chat_id int unsigned not null,
+    to_message_id int unsigned not null,
+    primary key (to_chat_id, to_message_id)
+);
 ```
 
 Grant INSERT and SELECT privileges to the table
