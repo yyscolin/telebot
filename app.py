@@ -96,7 +96,7 @@ def get_reply_target(to_chat_id, to_message_id):
 
 def is_in_array(haystack, needle):
     for array_element in haystack:
-        if array_element and needle:
+        if array_element == needle:
             return True
     return False
 
@@ -136,6 +136,7 @@ def run_cronjob():
             continue
 
         mycursor.execute("insert into updates values (%s, %s)", (update_id, new_update.to_json()))
+        mydb.commit()
 
         if new_update.message is None:
             continue
