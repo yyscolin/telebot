@@ -66,16 +66,17 @@ def get_rate_limit_default(timenow):
     }
 
 
-def get_rate_limits_list():
+def get_rate_limits_list(agent_chats):
     rate_limits = {}
     mycursor.execute("SELECT * FROM rate_limits")
     for [chat_id, limit, timespan] in mycursor.fetchall():
-        rate_limits[chat_id] = {
-            "cutoff_time": timenow - datetime.timedelta(seconds=timespan),
-            "messages_max": limit,
-            "messages_sent": 0,
-            "timespan": timespan,
-        }
+        if chat_id not in agent_chats:
+            rate_limits[chat_id] = {
+                "cutoff_time": timenow - datetime.timedelta(seconds=timespan),
+                "messages_max": limit,
+                "messages_sent": 0,
+                "timespan": timespan,
+            }
     return rate_limits
 
 
@@ -136,22 +137,28 @@ def record_message(new_message, reply_chat_id=None, reply_message_id=None):
         reply_message_id,
         new_message.date
     ))
+    # time_delta = datetime.utcnow() - new_message.date.replace(tzinfo=None)
+    # print(time.time(), type(time.time()))
+    # timestamp = new_message.date.utcnow().timestamp()
+    # print(timestamp, int(timestamp))
     mydb.commit()
 
 
 def run_cronjob():
-    rate_limits = get_rate_limits_list()
+    agent_chats = get_agent_chats()
+    rate_limits = get_rate_limits_list(agent_chats)
     timenow = datetime.datetime.now()
 
     mycursor.execute(SQL_QUERY_2)
     recorded_messages = mycursor.fetchall()
     for [chat_id, message_id, replies_count, timestamp] in recorded_messages:
-        if chat_id not in rate_limits:
-            rate_limits[chat_id] = get_rate_limit_default(timenow)
+        if chat_id not in agent_chats:
+            if chat_id not in rate_limits:
+                rate_limits[chat_id] = get_rate_limit_default(timenow)
 
-        is_in_timespan = timestamp > rate_limits[chat_id]["cutoff_time"]
-        if is_in_timespan and replies_count is None:
-            rate_limits[chat_id]["messages_sent"] += 1
+            is_in_timespan = timestamp > rate_limits[chat_id]["cutoff_time"]
+            if is_in_timespan and replies_count is None:
+                rate_limits[chat_id]["messages_sent"] += 1
 
     recorded_updates = get_recorded_updates()
     for new_update in telebot.get_updates(timeout=60):
@@ -190,7 +197,6 @@ def run_cronjob():
             record_agent(new_message)
             continue
 
-        agent_chats = get_agent_chats()
         if new_message.text == "/new" and chat_id in agent_chats:
             if chat_id in new_message_senders:
                 telebot.send_message(chat_id, "Your next reply has already been marked as a new message")
@@ -207,15 +213,16 @@ def run_cronjob():
                 telebot.send_message(chat_id, REJECT_MESSAGE_2, reply_to_message_id=message_id)
                 continue
 
-        if chat_id not in rate_limits:
-            rate_limits[chat_id] = get_rate_limit_default(timenow)
+        if chat_id not in agent_chats:
+            if chat_id not in rate_limits:
+                rate_limits[chat_id] = get_rate_limit_default(timenow)
 
-        messages_sent = rate_limits[chat_id]["messages_sent"]
-        if messages_sent >= rate_limits[chat_id]["messages_max"]:
-            timespan = rate_limits[chat_id]["timespan"]
-            reject_message = REJECT_MESSAGE_1.format(messages_sent, timespan)
-            telebot.send_message(chat_id, reject_message, reply_to_message_id=message_id)
-            continue
+            messages_sent = rate_limits[chat_id]["messages_sent"]
+            if messages_sent >= rate_limits[chat_id]["messages_max"]:
+                timespan = rate_limits[chat_id]["timespan"]
+                reject_message = REJECT_MESSAGE_1.format(messages_sent, timespan)
+                telebot.send_message(chat_id, reject_message, reply_to_message_id=message_id)
+                continue
 
         if reply_to_message:
             reply_target = get_reply_target(chat_id, reply_to_message.message_id)
