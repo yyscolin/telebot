@@ -44,7 +44,6 @@ name=vals.name
 """
 
 
-new_message_senders = []
 chat_contexts = {}
 
 
@@ -197,14 +196,6 @@ def run_cronjob():
             record_agent(new_message)
             continue
 
-        if new_message.text == "/new" and chat_id in agent_chats:
-            if chat_id in new_message_senders:
-                telebot.send_message(chat_id, "Your next reply has already been marked as a new message")
-            else:
-                new_message_senders.append(chat_id)
-                telebot.send_message(chat_id, "Your next reply will be a new message instead of a reply")
-            continue
-
         reply_to_message = new_message.reply_to_message
         if reply_to_message:
             is_bot_sent = reply_to_message.from_user.is_bot
@@ -231,12 +222,6 @@ def run_cronjob():
                 continue
 
             (reply_chat_id, reply_message_id) = reply_target
-            if chat_id in new_message_senders:
-                push_message(chat_id, message_id, [reply_chat_id], "You have a new message:")
-                new_message_senders.remove(chat_id)
-                record_message(new_message)
-                continue
-
             to_chat_ids = agent_chats if reply_chat_id in agent_chats else [reply_chat_id]
             push_message(chat_id, message_id, to_chat_ids, "You have a reply for this message:", reply_message_id)
             record_message(new_message, reply_chat_id, reply_message_id)
