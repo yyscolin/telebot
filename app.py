@@ -25,8 +25,18 @@ You already have {} unreplied message(s) sent within the last {} seconds. Please
 REJECT_MESSAGE_2 = """
 You cannot reply to this bot-generated message
 """
-SQL_QUERY_1 = """
-SELECT from_chat_id, from_message_id FROM forwarded_messages WHERE to_chat_id=%s and to_message_id=%s
+REJECT_MESSAGE_3 = """
+You cannot reply to this message due to an internal server error
+"""
+SQL_QUERY_1A = """
+SELECT from_chat_id, from_message_id
+FROM forwarded_messages
+WHERE to_chat_id=%s and to_message_id=%s
+"""
+SQL_QUERY_1B = """
+SELECT to_chat_id, to_message_id
+FROM forwarded_messages
+WHERE from_chat_id=%s and from_message_id=%s and to_chat_id != %s
 """
 SQL_QUERY_2 = """
 select chat_id, message_id, replies_count, timestamp from messages left join (
@@ -44,15 +54,8 @@ name=vals.name
 """
 
 
+agent_chats = []
 chat_contexts = {}
-
-
-def get_agent_chats():
-    agent_chats = []
-    mycursor.execute("select chat_id from agents")
-    for [chat_id] in mycursor.fetchall():
-        agent_chats.append(chat_id)
-    return agent_chats
 
 
 def get_rate_limit_default(timenow):
@@ -65,7 +68,8 @@ def get_rate_limit_default(timenow):
     }
 
 
-def get_rate_limits_list(agent_chats):
+def get_rate_limits_list():
+    global agent_chats
     rate_limits = {}
     mycursor.execute("SELECT * FROM rate_limits")
     for [chat_id, limit, timespan] in mycursor.fetchall():
@@ -87,33 +91,49 @@ def get_recorded_updates():
     return update_ids
 
 
-def get_reply_target(to_chat_id, to_message_id):
-    mycursor.execute(SQL_QUERY_1, (
+def get_reply_targets(to_chat_id, to_message_id):
+    mycursor.execute(SQL_QUERY_1A, (
         to_chat_id,
         to_message_id
     ))
-    return mycursor.fetchone()
+    db_row = mycursor.fetchone()
+    if db_row is None:
+        return None
+
+    reply_targets = []
+    [from_chat_id, from_message_id] = db_row
+    reply_targets.append((from_chat_id, from_message_id))
+
+    mycursor.execute(SQL_QUERY_1B, (
+        from_chat_id,
+        from_message_id,
+        to_chat_id
+    ))
+    for [chat_id, message_id] in mycursor.fetchall():
+        reply_targets.append((chat_id, message_id))
+
+    return reply_targets
 
 
-def is_in_array(haystack, needle):
-    for array_element in haystack:
-        if array_element == needle:
-            return True
-    return False
-
-
-def push_message(from_chat_id, from_message_id, to_chat_ids, push_tip, reply_message_id=None):
-    for chat_id in to_chat_ids:
-        telebot.send_message(chat_id, push_tip, reply_to_message_id=reply_message_id)
-        forward_result = telebot.forward_message(chat_id, from_chat_id, from_message_id)
+def push_message(from_chat_id, from_message_id, push_tip, reply_targets=None):
+    def push(to_chat_id, reply_message_id=None):
+        telebot.send_message(to_chat_id, push_tip, reply_to_message_id=reply_message_id)
+        forward_result = telebot.forward_message(to_chat_id, from_chat_id, from_message_id)
         sql_query = "INSERT INTO forwarded_messages VALUES (%s, %s, %s, %s)"
         mycursor.execute(sql_query, (
             from_chat_id,
             from_message_id,
-            chat_id,
+            to_chat_id,
             forward_result.message_id
         ))
         mydb.commit()
+
+    if reply_targets is None:
+        for chat_id in agent_chats:
+            push(chat_id)
+    else:
+        for (reply_chat_id, reply_message_id) in reply_targets:
+            push(reply_chat_id, reply_message_id)
 
     telebot.send_message(from_chat_id, "Your message has been received.", reply_to_message_id=from_message_id)
 
@@ -136,16 +156,22 @@ def record_message(new_message, reply_chat_id=None, reply_message_id=None):
         reply_message_id,
         new_message.date
     ))
-    # time_delta = datetime.utcnow() - new_message.date.replace(tzinfo=None)
-    # print(time.time(), type(time.time()))
-    # timestamp = new_message.date.utcnow().timestamp()
-    # print(timestamp, int(timestamp))
     mydb.commit()
 
 
+def update_agent_chats():
+    global agent_chats
+    updated_agent_chats = []
+    mycursor.execute("select chat_id from agents")
+    for [chat_id] in mycursor.fetchall():
+        updated_agent_chats.append(chat_id)
+    agent_chats = updated_agent_chats
+
+
 def run_cronjob():
-    agent_chats = get_agent_chats()
-    rate_limits = get_rate_limits_list(agent_chats)
+    global agent_chats
+    update_agent_chats()
+    rate_limits = get_rate_limits_list()
     timenow = datetime.datetime.now()
 
     mycursor.execute(SQL_QUERY_2)
@@ -162,7 +188,7 @@ def run_cronjob():
     recorded_updates = get_recorded_updates()
     for new_update in telebot.get_updates(timeout=60):
         update_id = new_update.update_id
-        if is_in_array(recorded_updates, update_id):
+        if update_id in recorded_updates:
             continue
 
         mycursor.execute("insert into updates values (%s, %s)", (update_id, new_update.to_json()))
@@ -216,19 +242,19 @@ def run_cronjob():
                 continue
 
         if reply_to_message:
-            reply_target = get_reply_target(chat_id, reply_to_message.message_id)
-            if reply_target is None:
-                telebot.send_message(chat_id, "You cannot reply to this message due to an internal server error", reply_to_message_id=message_id)
+            reply_targets = get_reply_targets(chat_id, reply_to_message.message_id)
+            if reply_targets is None:
+                telebot.send_message(chat_id, REJECT_MESSAGE_3, reply_to_message_id=message_id)
                 continue
 
-            (reply_chat_id, reply_message_id) = reply_target
-            to_chat_ids = agent_chats if reply_chat_id in agent_chats else [reply_chat_id]
-            push_message(chat_id, message_id, to_chat_ids, "You have a reply for this message:", reply_message_id)
+            push_message(chat_id, message_id, "Reply received for this message:", reply_targets)
+            (reply_chat_id, reply_message_id) = reply_targets[0]
             record_message(new_message, reply_chat_id, reply_message_id)
             continue
 
-        push_message(chat_id, message_id, agent_chats, "You have a new message:")
-        record_message(new_message)
+        if chat_id not in agent_chats:
+            push_message(chat_id, message_id, "You have a new message:")
+            record_message(new_message)
 
 
 while True:
