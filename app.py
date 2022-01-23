@@ -172,7 +172,7 @@ def run_cronjob():
     global agent_chats
     update_agent_chats()
     rate_limits = get_rate_limits_list()
-    timenow = datetime.datetime.now()
+    timenow = datetime.datetime.utcnow()
 
     mycursor.execute(SQL_QUERY_2)
     recorded_messages = mycursor.fetchall()
@@ -186,6 +186,7 @@ def run_cronjob():
                 rate_limits[chat_id]["messages_sent"] += 1
 
     recorded_updates = get_recorded_updates()
+    validity_lifespan = int(os.getenv("validity_lifespan")) or 30
     for new_update in telebot.get_updates(timeout=60):
         update_id = new_update.update_id
         if update_id in recorded_updates:
@@ -195,7 +196,15 @@ def run_cronjob():
         mydb.commit()
 
         new_message = new_update.message
-        if new_message is None or new_message.group_chat_created:
+        if new_message is None:
+            continue
+
+        if new_message.group_chat_created:
+            # TODO: Leave group chat
+            continue
+
+        timediff = timenow - new_update.message.date.replace(tzinfo=None)
+        if timediff.total_seconds() > validity_lifespan:
             continue
 
         chat_id = new_message.chat_id
