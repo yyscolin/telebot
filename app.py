@@ -68,7 +68,7 @@ def get_rate_limit_default(timenow):
     }
 
 
-def get_rate_limits_list():
+def get_rate_limits_list(timenow):
     global agent_chats
     rate_limits = {}
     mycursor.execute("SELECT * FROM rate_limits")
@@ -171,8 +171,8 @@ def update_agent_chats():
 def run_cronjob():
     global agent_chats
     update_agent_chats()
-    rate_limits = get_rate_limits_list()
     timenow = datetime.datetime.utcnow()
+    rate_limits = get_rate_limits_list(timenow)
 
     mycursor.execute(SQL_QUERY_2)
     recorded_messages = mycursor.fetchall()
