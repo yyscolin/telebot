@@ -285,6 +285,9 @@ def run_cronjob():
 
 
 while True:
-    run_cronjob()
+    try:
+        run_cronjob()
+    except Exception as error:
+        print(error)
     run_interval = int(os.getenv("run_interval")) or 1
     time.sleep(run_interval)
