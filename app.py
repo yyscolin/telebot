@@ -1,5 +1,6 @@
 import datetime
 from dotenv import load_dotenv
+import math
 import mysql.connector
 import os
 import sys
@@ -20,7 +21,7 @@ telebot = telegram.Bot(token=os.getenv("bot_token"))
 
 
 REJECT_MESSAGE_1 = """
-You already have {} unreplied message(s) sent within the last {} seconds. Please wait for a response or try again later.
+You already have {} unreplied message(s) sent within the last {}. Please wait for a response or try again later.
 """
 REJECT_MESSAGE_2 = """
 You cannot reply to this bot-generated message
@@ -113,6 +114,23 @@ def get_reply_targets(to_chat_id, to_message_id):
         reply_targets.append((chat_id, message_id))
 
     return reply_targets
+
+
+def parse_seconds_to_string(seconds):
+    strings = []
+    days = math.floor(seconds / 86400)
+    hours = math.floor(seconds % 86400 / 3600)
+    mins = math.floor(seconds % 86400 % 3600 / 60)
+    secs = math.floor(seconds % 86400 % 3600 % 60)
+    if days > 0:
+        strings.append("{} day{}".format(days, "s" if days != 1 else ""))
+    if hours > 0:
+        strings.append("{} hour{}".format(hours, "s" if hours != 1 else ""))
+    if mins > 0:
+        strings.append("{} minute{}".format(mins, "s" if mins != 1 else ""))
+    if secs > 0:
+        strings.append("{} second{}".format(secs, "s" if secs != 1 else ""))
+    return " and ".join(strings)
 
 
 def push_message(from_chat_id, from_message_id, push_tip, reply_targets=None):
@@ -246,7 +264,7 @@ def run_cronjob():
             messages_sent = rate_limits[chat_id]["messages_sent"]
             if messages_sent >= rate_limits[chat_id]["messages_max"]:
                 timespan = rate_limits[chat_id]["timespan"]
-                reject_message = REJECT_MESSAGE_1.format(messages_sent, timespan)
+                reject_message = REJECT_MESSAGE_1.format(messages_sent, parse_seconds_to_string(timespan))
                 telebot.send_message(chat_id, reject_message, reply_to_message_id=message_id)
                 continue
 
