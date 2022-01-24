@@ -60,6 +60,9 @@ name=vals.name
 
 agent_chats = []
 chat_contexts = {}
+is_error_logged = {
+    "internet": False,
+}
 
 
 def get_rate_limit_default(timenow):
@@ -309,11 +312,24 @@ def run_cronjob():
 
 
 while True:
+    has_internet_error = False
     try:
         initialize_log_file()
         run_cronjob()
+    except telegram.error.NetworkError:
+        has_internet_error = True
+        if is_error_logged["internet"] is False:
+            traceback.print_exc()
+            logging.exception("message")
+            is_error_logged["internet"] = True
+        pass
     except:
         traceback.print_exc()
         logging.exception("message")
+
+    if is_error_logged["internet"] and has_internet_error is False:
+        is_error_logged["internet"] = False
+        print("Connection re-established")
+
     run_interval = int(os.getenv("run_interval")) or 1
     time.sleep(run_interval)
