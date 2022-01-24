@@ -1,11 +1,14 @@
 import datetime
 from dotenv import load_dotenv
+import logging
 import math
 import mysql.connector
 import os
+from pathlib import Path
 import sys
 import telegram
 import time
+import traceback
 
 
 load_dotenv()
@@ -105,6 +108,15 @@ def get_reply_targets(to_chat_id, to_message_id):
         reply_targets.append((chat_id, message_id))
 
     return reply_targets
+
+
+def initialize_log_file():
+    log_folder = os.getenv("log_folder") or "logs"
+    Path(log_folder).mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        filename=os.path.join(log_folder, datetime.datetime.now().strftime("%Y-%m-%d") + ".log"),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(funcName)s - line %(lineno)d"
+    )
 
 
 def parse_rate_limit(timenow, messages_max, timespan):
@@ -298,8 +310,10 @@ def run_cronjob():
 
 while True:
     try:
+        initialize_log_file()
         run_cronjob()
-    except Exception as error:
-        print(error)
+    except:
+        traceback.print_exc()
+        logging.exception("message")
     run_interval = int(os.getenv("run_interval")) or 1
     time.sleep(run_interval)
