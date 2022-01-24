@@ -25,8 +25,8 @@ create table messages (
 
 create table rate_limits (
     chat_id int not null primary key,
-    `limit` int unsigned not null,
-    timespan int unsigned not null
+    `limit` int unsigned not null default 0,
+    timespan int unsigned not null default 0
 );
 
 create table forwarded_messages (
