@@ -32,6 +32,9 @@ You cannot reply to this bot-generated message
 REJECT_MESSAGE_3 = """
 You cannot reply to this message due to an internal server error
 """
+REJECT_MESSAGE_4 = """
+You cannot send a message with more than {} {}
+"""
 SQL_QUERY_1A = """
 SELECT from_chat_id, from_message_id
 FROM forwarded_messages
@@ -268,6 +271,14 @@ def run_cronjob():
 
             telebot.send_message(chat_id, "Setting this chat as an agent chat")
             record_agent(new_message)
+            continue
+
+        char_limit = int(os.getenv("char_limit") or 0)
+        if char_limit > 0 and len(new_message.text) > char_limit:
+            telebot.send_message(chat_id, REJECT_MESSAGE_4.format(
+                char_limit,
+                "character" if char_limit == 1 else "characters"
+            ), reply_to_message_id=message_id)
             continue
 
         reply_to_message = new_message.reply_to_message
