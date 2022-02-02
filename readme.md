@@ -55,6 +55,8 @@ Unix `./env/bin/python`
 ## Install dependencies
 Run the following command:
 `pip install mysql-connector-python python-dotenv python-telegram-bot`
+For webhook strategy (not needed for polling strategy):
+`pip install flask`
 
 ## Set env variables
 Copy .env_sample to .env and fill in the variables
