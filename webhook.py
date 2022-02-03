@@ -1,10 +1,8 @@
 from flask import Flask, request
-import json
 import datetime
 import os
 import requests
 
-from modules.common_functions import *
 import modules.mysql as mydb
 from modules.handler import handle_update
 
@@ -21,12 +19,9 @@ def set_webhook():
 
 @app.route("/", methods=["POST"])
 def index():
-    update_json = request.get_json()
-    update_id = eval(update_json, ["update_id"])
-    mydb.record_update(update_id, json.dumps(update_json))
-
+    update_dict = request.get_json()
     timenow = datetime.datetime.utcnow()
-    handle_update(update_json, timenow)
+    handle_update(update_dict, timenow)
     return "Ok"
 
 

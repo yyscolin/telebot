@@ -11,17 +11,17 @@ REJECT_MESSAGE_4 = """
 You cannot send a message with more than {} {}
 """
 
-SQL_QUERY_1A = """
+SQL_QUERY_1 = """
 SELECT from_chat_id, from_message_id
 FROM forwarded_messages
 WHERE to_chat_id=%s and to_message_id=%s
 """
-SQL_QUERY_1B = """
+SQL_QUERY_2 = """
 SELECT to_chat_id, to_message_id
 FROM forwarded_messages
 WHERE from_chat_id=%s and from_message_id=%s and to_chat_id != %s
 """
-SQL_QUERY_2 = """
+SQL_QUERY_3 = """
 select chat_id, message_id, replies_count, timestamp
 from messages left join (
     select reply_chat_id, reply_message_id, count(*) as replies_count
@@ -30,7 +30,7 @@ from messages left join (
     group by reply_chat_id, reply_message_id
 ) t1 on messages.chat_id=t1.reply_chat_id and messages.message_id=t1.reply_message_id
 """
-SQL_QUERY_3 = """
+SQL_QUERY_4 = """
 insert into agents values (%s, %s, %s) as vals
 on duplicate key update
 is_group=vals.is_group,

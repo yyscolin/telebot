@@ -62,8 +62,9 @@ For webhook strategy (not needed for polling strategy):
 Copy .env_sample to .env and fill in the variables
 
 ## Run the server
-Run the application using the command:
-`py app.py`
+Run the application using either of the commands below:
+`py polling.py`
+`py webhook.py`
 
 ## Register as chat agent
 Type `/setagent` to the chat bot and enter the agent password when prompted
