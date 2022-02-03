@@ -17,11 +17,12 @@ def set_webhook():
     return requests.get(set_wh_url.format(bot_token, webhook_url))
 
 
-@app.route("/", methods=["POST"])
+@app.route("/", methods=["GET", "POST"])
 def index():
-    update_dict = request.get_json()
-    timenow = datetime.datetime.utcnow()
-    handle_update(update_dict, timenow)
+    if (request.method == "POST"):
+        update_dict = request.get_json()
+        timenow = datetime.datetime.utcnow()
+        handle_update(update_dict, timenow)
     return "Ok"
 
 
