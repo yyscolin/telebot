@@ -16,11 +16,12 @@ def add_to_rate_limits(chat_id, messages_max=None, timespan=None):
         if messages_max is None: messages_max = int(os.getenv("rate_limit_max") or 0)
         if timespan is None: timespan = int(os.getenv("rate_limit_timespan") or 0)
         is_unlimited = chat_id in agent_chats or messages_max == 0 or timespan == 0
-        rate_limits[chat_id] = False if is_unlimited else {
-            "messages_max": messages_max,
-            "unread_messages": [],
-            "timespan": timespan,
-        }
+        if is_unlimited is False:
+            rate_limits[chat_id] = {
+                "messages_max": messages_max,
+                "unread_messages": [],
+                "timespan": timespan,
+            }
 
 
 def get_unread_messages(chat_id, timenow):
@@ -43,7 +44,7 @@ def record_agent(chat_id, message):
 
 def record_message(chat_id, message_id, message_date, reply_chat_id=None, reply_message_id=None):
     mydb.record_message(chat_id, message_id, message_date, reply_chat_id, reply_message_id)
-    if rate_limits[chat_id] is not False:
+    if chat_id in rate_limits:
         rate_limits[chat_id]["unread_messages"].append({
             "message_id": message_id,
             "timestamp": message_date
@@ -65,7 +66,7 @@ def set_rate_limits():
     timenow = datetime.datetime.utcnow()
     for [chat_id, message_id, replies_count, timestamp] in mydb.get_messages():
         add_to_rate_limits(chat_id)
-        if rate_limits[chat_id] is not False:
+        if chat_id in rate_limits:
             timespan = rate_limits[chat_id]["timespan"]
             cutoff_time = timenow - datetime.timedelta(seconds=timespan)
             is_in_timespan = timestamp > cutoff_time
