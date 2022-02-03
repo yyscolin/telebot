@@ -62,7 +62,8 @@ def push_message(from_chat_id, from_message_id, push_tip, reply_targets=None):
         for (reply_chat_id, reply_message_id) in reply_targets:
             push(reply_chat_id, reply_message_id)
 
-    telebot.send_message(from_chat_id, "Your message has been received.", reply_to_message_id=from_message_id)
+    confirm_message = "Your {} has been received.".format("reply" if reply_targets else "message")
+    telebot.send_message(from_chat_id, confirm_message, reply_to_message_id=from_message_id)
 
 
 def handle_update(update_dict, timenow):
