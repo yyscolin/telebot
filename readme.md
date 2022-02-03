@@ -76,9 +76,8 @@ For Postgresql:
 `heroku login`
 - Add the Heroku remote:
 `heroku git:remote -a <project_name>`
-- Create `Procfile` file with either of the following as its content:
-`web: gunicorn app:polling`
-`web: gunicorn app:webhook`
+- Create `Procfile` file with the following as its content:
+`web:gunicorn webapp:app`
 - Install the Heroku dependency:
 `pip install gunicorn`
 - Define libraries used for Heroku:
