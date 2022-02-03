@@ -120,9 +120,9 @@ def handle_update(update_dict, timenow):
 
     reply_to_message = eval(message, ["reply_to_message"])
     if reply_to_message:
-        is_bot_sent = eval(reply_to_message, ["from_user", "is_bot"])
-        is_not_forwarded = eval(reply_to_message, ["forward_from"]) is None
-        if is_bot_sent and is_not_forwarded:
+        is_bot_sent = eval(reply_to_message, ["from", "is_bot"])
+        is_forwarded = eval(reply_to_message, ["forward_from"])
+        if is_bot_sent and not is_forwarded:
             telebot.send_message(chat_id, REJECT_MESSAGE_2, reply_to_message_id=message_id)
             return True
 
