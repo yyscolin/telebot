@@ -69,22 +69,25 @@ For Postgresql:
 `py polling.py`
 `py webhook.py`
 
-## Deployment to Heroku
+## Deployment to Heroku (Only for webhook)
+- Create Heroku account and create a new project
+- Set the env variables in the project settings
 - Install Heroku CLI from their website:
 `https://devcenter.heroku.com/articles/heroku-command-line`
 - Login via CLI (remember to add executable folder to PATH):
 `heroku login`
 - Add the Heroku remote:
 `heroku git:remote -a <project_name>`
-- Create `Procfile` file with the following as its content:
-`web:gunicorn webapp:app`
 - Install the Heroku dependency:
 `pip install gunicorn`
+- Create a seperate branch for Heroku
+- Create `Procfile` file with the following as its content:
+`web: gunicorn webhook:app`
 - Define libraries used for Heroku:
 `pip freeze > requirements.txt`
-- Create a seperate branch for Heroku and commit the two created files
+- Commit the two created files
 - Push to Heroku:
-`git push heroku master`
+`git push heroku <branch>:master`
 
 ## Learn your commands
 ### Register as chat agent
