@@ -30,9 +30,14 @@ from messages left join (
     group by reply_chat_id, reply_message_id
 ) t1 on messages.chat_id=t1.reply_chat_id and messages.message_id=t1.reply_message_id
 """
-SQL_QUERY_4 = """
+SQL_QUERY_4A = """
 insert into agents values (%s, %s, %s) as vals
 on duplicate key update
 is_group=vals.is_group,
 name=vals.name
+"""
+SQL_QUERY_4B = """
+insert into agents values (%s, %s, %s)
+on conflict (chat_id) do update
+set (is_group, name) = (excluded.is_group, excluded.name)
 """
