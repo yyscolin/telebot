@@ -7,7 +7,7 @@ import time
 import traceback
 
 from modules.handler import handle_update
-import modules.mysql as mydb
+import modules.mydb as mydb
 
 
 telebot = telegram.Bot(token=os.getenv("bot_token"))

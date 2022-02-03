@@ -10,30 +10,30 @@ create table agents (
 );
 
 create table updates (
-    update_id int unsigned not null primary key,
+    update_id int not null primary key,
     payload varchar(1200) not null
 );
 
 create table messages (
     chat_id int not null,
-    message_id int unsigned not null,
+    message_id int not null,
     reply_chat_id int,
-    reply_message_id int unsigned,
+    reply_message_id int,
     timestamp timestamp not null,
     primary key (chat_id, message_id)
 );
 
 create table rate_limits (
     chat_id int not null primary key,
-    `limit` int unsigned not null default 0,
-    timespan int unsigned not null default 0
+    max_messages int not null default 0,
+    timespan int not null default 0
 );
 
 create table forwarded_messages (
     from_chat_id int not null,
-    from_message_id int unsigned not null,
+    from_message_id int not null,
     to_chat_id int not null,
-    to_message_id int unsigned not null,
+    to_message_id int not null,
     primary key (to_chat_id, to_message_id)
 );
 ```
@@ -54,17 +54,21 @@ Unix `./env/bin/python`
 
 ## Install dependencies
 Run the following command:
-`pip install mysql-connector-python python-dotenv python-telegram-bot`
-For webhook strategy (not needed for polling strategy):
+`pip install python-dotenv python-telegram-bot`
+For webhook strategy only (not needed for polling strategy):
 `pip install flask`
 
-## Set env variables
-Copy .env_sample to .env and fill in the variables
+For MySql:
+`pip install mysql-connector-python`
+For Postgresql:
+`pip install psycopg2`
 
-## Run the server
-Run the application using either of the commands below:
+## Running the server locally
+- Copy .env_sample to .env and fill in the variables
+- Run the application using either of the commands below:
 `py polling.py`
 `py webhook.py`
 
-## Register as chat agent
+## Learn your commands
+### Register as chat agent
 Type `/setagent` to the chat bot and enter the agent password when prompted

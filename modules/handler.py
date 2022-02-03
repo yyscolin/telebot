@@ -5,7 +5,7 @@ import telegram
 
 import modules.cache as cache
 from modules.constants import *
-import modules.mysql as mydb
+import modules.mydb as mydb
 
 
 telebot = telegram.Bot(token=os.getenv("bot_token"))

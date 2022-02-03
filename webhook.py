@@ -3,7 +3,7 @@ import datetime
 import os
 import requests
 
-import modules.mysql as mydb
+import modules.mydb as mydb
 from modules.handler import handle_update
 
 

@@ -1,7 +1,7 @@
 import datetime
 import os
 
-import modules.mysql as mydb
+import modules.mydb as mydb
 
 
 char_limit = int(os.getenv("char_limit") or 0)

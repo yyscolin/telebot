@@ -3,17 +3,30 @@ from dotenv import load_dotenv
 import json
 import mysql.connector
 import os
+import psycopg2
 
 from modules.constants import *
 
 
 load_dotenv()
-mydb = mysql.connector.connect(
-    host=os.getenv("mysql_host") or "127.0.0.1",
-    port=os.getenv("mysql_port") or 3306,
-    user=os.getenv("mysql_user"),
-    password=os.getenv("mysql_password"),
-    database=os.getenv("mysql_database")
+mydbs = [mysql.connector, psycopg2]
+mydb_type = int(os.getenv("mydb_type") or -1)
+mydb_port = os.getenv("mydb_port")
+if mydb_type == 0:
+    sql_query_4 = SQL_QUERY_4A
+    if mydb_port is None: mydb_port = 3306
+elif mydb_type == 1:
+    sql_query_4 = SQL_QUERY_4B
+    if mydb_port is None: mydb_port = 5432
+else:
+    raise Exception("Invalid database type")
+
+mydb = mydbs[mydb_type].connect(
+    host=os.getenv("mydb_host") or "127.0.0.1",
+    port=mydb_port,
+    user=os.getenv("mydb_user"),
+    password=os.getenv("mydb_password"),
+    database=os.getenv("mydb_database")
 )
 mycursor = mydb.cursor()
 
@@ -72,7 +85,7 @@ def get_reply_targets(to_chat_id, to_message_id):
 
 
 def record_agent(chat_id, is_group, name):
-    mycursor.execute(SQL_QUERY_4, (chat_id, is_group, name))
+    mycursor.execute(sql_query_4, (chat_id, is_group, name))
     mydb.commit()
 
 
