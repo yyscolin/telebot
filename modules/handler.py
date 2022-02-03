@@ -127,7 +127,7 @@ def handle_update(update_dict, timenow):
             return True
 
     cache.add_to_rate_limits(chat_id)
-    if cache.rate_limits[chat_id] is not False:
+    if chat_id in cache.rate_limits:
         unread_count = len(cache.get_unread_messages(chat_id, timenow))
         if unread_count >= cache.rate_limits[chat_id]["messages_max"]:
             timespan = cache.rate_limits[chat_id]["timespan"]
@@ -148,7 +148,7 @@ def handle_update(update_dict, timenow):
         push_message(chat_id, message_id, "Reply received for this message:", reply_targets)
         (reply_chat_id, reply_message_id) = reply_targets[0]
         cache.record_message(chat_id, message_id, message_date, reply_chat_id, reply_message_id)
-        if cache.rate_limits[reply_chat_id] is not False:
+        if reply_chat_id in cache.rate_limits:
             cache.rate_limits[reply_chat_id]["unread_messages"] = list(filter(
                 lambda x: x["message_id"] != reply_message_id,
                 cache.rate_limits[reply_chat_id]["unread_messages"]
