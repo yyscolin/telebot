@@ -3,8 +3,8 @@ import datetime
 import os
 import requests
 
-import modules.mydb as mydb
 from modules.handler import handle_update
+import modules.logger as logger
 
 
 app = Flask(__name__)
@@ -29,6 +29,7 @@ def index():
 if __name__ == "__main__":
     webhook_response = set_webhook()
     if webhook_response.status_code == 200:
+        logger.initialize_log_file()
         app.run(debug=True)
     else:
         print("Error {} in setting up webhook:\n{}".format(
